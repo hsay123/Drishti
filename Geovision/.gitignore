@@ -1,0 +1,12 @@
+# secrets & local state
+.env
+
+# python
+__pycache__/
+*.pyc
+
+# watershed photo store (user data)
+data/photos/
+
+# node
+node_modules/

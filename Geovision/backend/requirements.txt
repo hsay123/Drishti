@@ -1,0 +1,13 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+earthengine-api>=1.7.38
+geemap>=0.38.3
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
+scikit-image>=0.23
+pillow>=10.0
+pydantic>=2.6
+requests>=2.31
+python-multipart>=0.0.9
+groq>=1.6python-dotenv>=1.0
