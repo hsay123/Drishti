@@ -11,6 +11,7 @@ import { Crosshair, Stack } from "@phosphor-icons/react";
 import { useState } from "react";
 import { PhotoLayer } from "./PhotoLayer.jsx";
 import { SrishtiWmsLayer, SrishtiToggleControl } from "./SrishtiLayerToggle.jsx";
+import { STATES } from "../data/india-regions.js";
 
 /**
  * Pan/zoom to the photo-point cluster when it changes and no analysis
@@ -40,6 +41,27 @@ function BoundsFitter({ bounds }) {
       map.invalidateSize();
     }
   }, [map, bounds]);
+  return null;
+}
+
+/**
+ * Smoothly fly the map to the selected watershed-overlay state when the
+ * selection changes or the overlay turns on — same useMap + useEffect
+ * pattern as BoundsFitter. Only fires while the boundary layer is enabled
+ * AND nothing else is driving the view: an active analysis result or photo
+ * cluster always wins (mirrors PhotoFocus's disabled={!!result} guard).
+ */
+function SrishtiStateFocus({ stateCode, enabled, suppressed }) {
+  const map = useMap();
+  if (typeof window !== "undefined")
+    window.__ssf = { renders: (window.__ssf?.renders || 0) + 1, enabled, suppressed, stateCode };
+  useEffect(() => {
+    window.__ssfEffect = { enabled, suppressed, stateCode };
+    if (!enabled || suppressed) return;
+    const state = STATES.find((s) => s.code === stateCode);
+    if (!state?.center) return;
+    map.flyTo(state.center, state.zoom);
+  }, [map, stateCode, enabled, suppressed]);
   return null;
 }
 
@@ -86,6 +108,11 @@ function MapView({ result, view, onViewChange, showMask, onToggleMask, onAoiClic
 
         <PhotoLayer photos={photos} />
         <PhotoFocus photos={photos} disabled={!!result} />
+        <SrishtiStateFocus
+          stateCode={srishtiState}
+          enabled={srishtiOn}
+          suppressed={!!result || (Array.isArray(photos) && photos.length > 0)}
+        />
 
         <BoundsFitter bounds={bounds} />
       </MapContainer>

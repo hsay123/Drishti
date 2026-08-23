@@ -1,5 +1,6 @@
 import { WMSTileLayer } from "react-leaflet";
 import { GlobeHemisphereWest } from "@phosphor-icons/react";
+import { STATES } from "../data/india-regions.js";
 
 /**
  * SRISHTI-alignment spike: togglable watershed-boundary overlay pulled LIVE
@@ -17,37 +18,6 @@ import { GlobeHemisphereWest } from "@phosphor-icons/react";
  */
 
 const WMS_URL = "https://bhuvan-vec2.nrsc.gov.in/bhuvan/wms";
-
-const STATES = [
-  ["AP", "Andhra Pradesh"],
-  ["AR", "Arunachal Pradesh"],
-  ["AS", "Assam"],
-  ["BR", "Bihar"],
-  ["CG", "Chhattisgarh"],
-  ["GA", "Goa"],
-  ["GJ", "Gujarat"],
-  ["HP", "Himachal Pradesh"],
-  ["HR", "Haryana"],
-  ["JH", "Jharkhand"],
-  ["JK", "Jammu & Kashmir"],
-  ["KA", "Karnataka"],
-  ["KL", "Kerala"],
-  ["MH", "Maharashtra"],
-  ["ML", "Meghalaya"],
-  ["MN", "Manipur"],
-  ["MP", "Madhya Pradesh"],
-  ["MZ", "Mizoram"],
-  ["NL", "Nagaland"],
-  ["OR", "Odisha"],
-  ["PB", "Punjab"],
-  ["RJ", "Rajasthan"],
-  ["SK", "Sikkim"],
-  ["TN", "Tamil Nadu"],
-  ["TR", "Tripura"],
-  ["UK", "Uttarakhand"],
-  ["UP", "Uttar Pradesh"],
-  ["WB", "West Bengal"],
-];
 
 export function SrishtiWmsLayer({ enabled, stateCode }) {
   if (!enabled) return null;
@@ -84,7 +54,7 @@ export function SrishtiToggleControl({ enabled, onEnabled, stateCode, onStateCod
         disabled={!enabled}
         onChange={(e) => onStateCode(e.target.value)}
       >
-        {STATES.map(([code, name]) => (
+        {STATES.map(({ code, name }) => (
           <option key={code} value={code}>
             {name}
           </option>

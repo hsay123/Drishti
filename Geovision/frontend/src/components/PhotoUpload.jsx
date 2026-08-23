@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { uploadPhoto, getNarrative, importPhotos } from "../api/client.js";
 import { CATEGORY_META } from "../lib/photoCategories.js";
+import { STATES, DISTRICTS_BY_STATE } from "../data/india-regions.js";
 import { TimelineChart } from "./TimelineChart.jsx";
 
 /**
@@ -119,9 +120,46 @@ export function PhotoUpload({ aoi, onUploaded, photos }) {
       <details className="drishti-details">
         <summary>DRISHTI details (optional)</summary>
         <div className="drishti-grid">
+          <label className="field drishti-field">
+            <span className="field-label">State · optional</span>
+            <select
+              className="input"
+              value={context.state}
+              onChange={(e) =>
+                setContext((c) => ({
+                  ...c,
+                  state: e.target.value,
+                  district: "", // never carry a district across states
+                }))
+              }
+            >
+              <option value="">—</option>
+              {STATES.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field drishti-field">
+            <span className="field-label">District · optional</span>
+            <select
+              className="input"
+              value={context.district}
+              disabled={!context.state}
+              onChange={(e) =>
+                setContext((c) => ({ ...c, district: e.target.value }))
+              }
+            >
+              <option value="">—</option>
+              {(DISTRICTS_BY_STATE[context.state] ?? []).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
           {[
-            ["state", "State"],
-            ["district", "District"],
             ["block", "Block"],
             ["micro_watershed_id", "Micro-watershed ID"],
           ].map(([key, label]) => (
