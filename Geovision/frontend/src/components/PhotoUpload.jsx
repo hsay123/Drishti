@@ -5,8 +5,9 @@ import {
   WarningCircle,
   CheckCircle,
   Sparkle,
+  DownloadSimple,
 } from "@phosphor-icons/react";
-import { uploadPhoto, getNarrative } from "../api/client.js";
+import { uploadPhoto, getNarrative, importPhotos } from "../api/client.js";
 import { CATEGORY_META } from "../lib/photoCategories.js";
 import { TimelineChart } from "./TimelineChart.jsx";
 
@@ -18,14 +19,28 @@ import { TimelineChart } from "./TimelineChart.jsx";
  * to /photos/upload and shows a compact result card binding the classifier's
  * verdict plus the fused satellite indices. Failures surface as an inline
  * message; neither state blocks the rest of the app.
+ *
+ * The optional "DRISHTI details" block lets users tag uploads with the
+ * SRISHTI-DRISHTI project hierarchy (state → district → block → micro-
+ * watershed). Every field is optional — leaving them blank is the default.
  */
 export function PhotoUpload({ aoi, onUploaded, photos }) {
   const inputRef = useRef(null);
+  const csvInputRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
+  const [importError, setImportError] = useState(null);
   const [last, setLast] = useState(null);
+  const [importSummary, setImportSummary] = useState(null);
   const [narrative, setNarrative] = useState(null);
   const [narrBusy, setNarrBusy] = useState(false);
+  const [context, setContext] = useState({
+    state: "",
+    district: "",
+    block: "",
+    micro_watershed_id: "",
+  });
 
   async function handleFile(file) {
     if (!file) return;
@@ -33,7 +48,7 @@ export function PhotoUpload({ aoi, onUploaded, photos }) {
     setLast(null);
     setBusy(true);
     try {
-      const point = await uploadPhoto({ file, aoi });
+      const point = await uploadPhoto({ file, aoi, context });
       setLast(point);
       onUploaded?.(point);
     } catch (err) {
@@ -41,6 +56,22 @@ export function PhotoUpload({ aoi, onUploaded, photos }) {
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function handleCsv(file) {
+    if (!file) return;
+    setImportError(null);
+    setImportSummary(null);
+    setImporting(true);
+    try {
+      setImportSummary(await importPhotos({ file }));
+      onUploaded?.(); // refresh map markers
+    } catch (err) {
+      setImportError(err.message);
+    } finally {
+      setImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = "";
     }
   }
 
@@ -85,6 +116,35 @@ export function PhotoUpload({ aoi, onUploaded, photos }) {
         Geo-tagged JPG inside the selected AOI · classified + fused with satellite NDVI/NDWI
       </p>
 
+      <details className="drishti-details">
+        <summary>DRISHTI details (optional)</summary>
+        <div className="drishti-grid">
+          {[
+            ["state", "State"],
+            ["district", "District"],
+            ["block", "Block"],
+            ["micro_watershed_id", "Micro-watershed ID"],
+          ].map(([key, label]) => (
+            <label key={key} className="field drishti-field">
+              <span className="field-label">{label} · optional</span>
+              <input
+                className="input"
+                type="text"
+                value={context[key]}
+                placeholder="—"
+                onChange={(e) =>
+                  setContext((c) => ({ ...c, [key]: e.target.value }))
+                }
+              />
+            </label>
+          ))}
+        </div>
+        <p className="btn-note">
+          Mirrors DRISHTI's project hierarchy so field data lines up with SRISHTI
+          records. Leave blank if you don't have it — never required for upload.
+        </p>
+      </details>
+
       <input
         ref={inputRef}
         type="file"
@@ -92,6 +152,41 @@ export function PhotoUpload({ aoi, onUploaded, photos }) {
         hidden
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
+
+      <button
+        type="button"
+        className="btn-secondary"
+        disabled={importing}
+        onClick={() => csvInputRef.current?.click()}
+      >
+        {importing ? (
+          <>
+            <CircleNotch size={16} weight="bold" className="spin" />
+            Importing…
+          </>
+        ) : (
+          <>
+            <DownloadSimple size={16} weight="duotone" />
+            Import from DRISHTI-style export
+          </>
+        )}
+      </button>
+      <input
+        ref={csvInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        onChange={(e) => handleCsv(e.target.files?.[0])}
+      />
+
+      {importError && (
+        <div className="upload-error" role="alert">
+          <WarningCircle size={15} weight="fill" />
+          <span>{importError}</span>
+        </div>
+      )}
+
+      {importSummary && <ImportSummaryCard summary={importSummary} />}
 
       {error && (
         <div className="upload-error" role="alert">
@@ -136,6 +231,40 @@ export function PhotoUpload({ aoi, onUploaded, photos }) {
             {!narrative.generated && " · template fallback"}
           </span>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Per-row result summary for a DRISHTI-style CSV import — every skipped row
+ * is shown with its reason; imported points are marked "not analyzed".
+ */
+function ImportSummaryCard({ summary }) {
+  const { total_rows: total, imported_count: okCount, skipped } = summary;
+  return (
+    <div className="import-summary">
+      <div className="is-head">
+        <CheckCircle size={15} weight="fill" />
+        <strong>
+          Imported {okCount} of {total} row{total === 1 ? "" : "s"}
+        </strong>
+      </div>
+      <p className="btn-note">
+        Metadata-only import — points are marked "not analyzed" (no photo to
+        classify). Data shown is as-supplied by the uploaded file.
+      </p>
+      {skipped?.length > 0 && (
+        <ul className="is-skipped">
+          {skipped.map((s) => (
+            <li key={s.row_number}>
+              <WarningCircle size={13} weight="fill" />
+              <span>
+                Row {s.row_number}: {s.reason}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

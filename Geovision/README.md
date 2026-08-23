@@ -43,6 +43,42 @@ Engine and labels itself accordingly in every response
 (`SatelliteSample.source`). The sampler's composite/index/reducer callables are
 injectable seams — swapping in the real API later touches one module.
 
+### SRISHTI-DRISHTI alignment
+
+SRISHTI (NRSC's Bhuvan-based IWMP portal) is an inventory/locator for watershed
+projects; DRISHTI is its companion field-collection app. Our data model mirrors
+**DRISHTI's project hierarchy — state → district → block → gram panchayat →
+micro-watershed (`micro_watershed_id`) → `project_year`** (IWMP-style year
+ranges such as `"2014-15"`) — so field data collected via DRISHTI could be
+ingested with a thin adapter. All of these fields are optional/nullable on
+every photo: a casual upload fills none of them, nothing is fabricated, and any
+value shown in the UI that was hand-entered or imported from a sample file is
+labelled as such (never implied to be live government data). There is **no
+scraping or automated interaction with the live bhuvan-app1.nrsc.gov.in
+portal** — alignment is schema-level plus a structured CSV import path only.
+
+**Bulk import:** the frontend's "Import from DRISHTI-style export" button posts
+a CSV to `POST /photos/import`; rows flow through the same schema, storage,
+and satellite fusion as single uploads (marked `not_analyzed` since no image
+is attached). A DRISHTI export could be ingested with at most a thin column
+mapping — no scraping of or login to the SRISHTI portal anywhere in the code.
+
+### Bhuvan WMS overlay (shipped)
+
+Investigation spike result: NRSC/Bhuvan's **documented OGC services are live
+and public**. `https://bhuvan5.nrsc.gov.in/bhuvan/wms` (the URL we started
+from) no longer resolves; NRSC's own wiki/Thematic-Services pages document the
+current GeoServer endpoints instead. Unauthenticated `GetCapabilities` +
+`GetMap` verified against `https://bhuvan-vec2.nrsc.gov.in/bhuvan/wms`
+(WMS 1.1.1), which exposes a dedicated `watershed:` workspace with per-state
+watershed-boundary layers (`watershed:BR_WS`, …24 states) plus LULC 50K /
+wasteland thematic layers. We shipped a **togglable map overlay**
+(`SrishtiLayerToggle.jsx`, off by default, state picker, labelled "Live · NRSC
+Bhuvan WMS") using react-leaflet's `WMSTileLayer` — no new libraries, no
+credentials, no scraping of app HTML. Honesty note: these layers are
+NRSC-published watershed *boundaries* used as map context; they are NOT live
+IWMP/SRISHTI project records, and nothing in this module claims otherwise.
+
 ## Quickstart
 
 ```bash
@@ -72,10 +108,11 @@ deterministic template (`generated=false`).
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /photos/upload` | multipart `file` + `aoi` ([w,s,e,n] or GeoJSON) + optional `watershed_id`, `notes`, `auto_classify` (default true). Rejects missing-GPS (400), corrupt images (400), outside-AOI (422) with clean JSON. Returns the full `PhotoPoint` incl. classification + satellite fusion. |
+| `POST /photos/upload` | multipart `file` + `aoi` ([w,s,e,n] or GeoJSON) + optional `watershed_id`, `notes`, `auto_classify` (default true) + optional DRISHTI-hierarchy fields (`state`, `district`, `block`, `gram_panchayat`, `micro_watershed_id`, `project_year` — all nullable). Rejects missing-GPS (400), corrupt images (400), outside-AOI (422) with clean JSON. Returns the full `PhotoPoint` incl. classification + satellite fusion. |
 | `GET /photos?watershed_id=` | stored points, newest first |
 | `GET /photos/{id}/file` | the image bytes |
 | `GET /photos/narrative?watershed_id=` | Groq field report over aggregated stats; always 200 |
+| `POST /photos/import` | multipart CSV shaped like a DRISHTI field-data export (`photo_ref`, `latitude`, `longitude`, optional `timestamp` + hierarchy columns + pre-existing `classification` text). Per-row validation: bad rows are skipped individually with reasons; only an unparseable file fails (400). Optional `aoi` form field skips outside-rows instead of rejecting. Imported points carry `classification="not_analyzed"` (no image to classify) and satellite fusion when GEE is up. Sample fixture: `backend/tests/fixtures/drishti_sample_import.csv` (clearly fake demo data). |
 
 Errors never leak stack traces; classifier/fusion failures become null fields
 on an otherwise-successful upload (`intervention_verified` is set only when the

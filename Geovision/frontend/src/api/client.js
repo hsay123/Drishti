@@ -59,12 +59,19 @@ async function getPhotos(watershedId) {
   return Array.isArray(body) ? body : [];
 }
 
-async function uploadPhoto({ file, aoi, watershedId, notes }) {
+async function uploadPhoto({ file, aoi, watershedId, notes, context }) {
   const form = new FormData();
   form.append("file", file);
   form.append("aoi", JSON.stringify(aoi));
   if (watershedId) form.append("watershed_id", watershedId);
   if (notes) form.append("notes", notes);
+  // Optional DRISHTI-hierarchy context (Task: SRISHTI-DRISHTI alignment) —
+  // sent only when the user typed something; empty fields stay absent.
+  if (context) {
+    for (const [key, value] of Object.entries(context)) {
+      if (value && String(value).trim()) form.append(key, String(value).trim());
+    }
+  }
   // auto_classify omitted — backend default true.
   let body;
   try {
@@ -93,4 +100,29 @@ async function getNarrative(watershedId) {
   return res.json();
 }
 
-export { postAnalyze, getHealth, getWatchlist, getPhotos, uploadPhoto, getNarrative };
+// DRISHTI-style CSV bulk import — returns the per-row summary
+// ({total_rows, imported[], skipped[]}) rather than a single pass/fail.
+async function importPhotos({ file }) {
+  const form = new FormData();
+  form.append("file", file);
+  let body;
+  try {
+    const res = await fetch(`${API_BASE}/photos/import`, { method: "POST", body: form });
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    if (!res.ok) {
+      const d = body?.detail;
+      const message = typeof d === "string" ? d : d?.detail || d?.error || body?.error;
+      throw new Error(message ?? `Import failed (HTTP ${res.status})`);
+    }
+    return body;
+  } catch (err) {
+    if (err instanceof Error && err.message) throw err;
+    throw new Error("Import failed — network error");
+  }
+}
+
+export { postAnalyze, getHealth, getWatchlist, getPhotos, uploadPhoto, getNarrative, importPhotos };

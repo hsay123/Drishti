@@ -14,6 +14,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 #: Top-level photo categories produced by ``photo_classifier.classify_photo``.
+#: ``not_analyzed`` is never emitted by the classifier — it marks points
+#: imported from a DRISHTI-style CSV without image data (see
+#: ``pipeline/drishti_import.py``).
 PhotoCategory = Literal[
     "water_body",
     "vegetation_healthy",
@@ -21,6 +24,7 @@ PhotoCategory = Literal[
     "bare_degraded_land",
     "conservation_structure",
     "unclear",
+    "not_analyzed",
 ]
 
 #: Sub-type recorded when the category is ``conservation_structure``.
@@ -34,7 +38,14 @@ StructureType = Literal[
 
 
 class PhotoMetadata(BaseModel):
-    """EXIF-derived facts about one uploaded photograph."""
+    """EXIF-derived facts about one uploaded photograph.
+
+    The ``state``…``project_year`` block mirrors DRISHTI's project hierarchy
+    (state → district → block → micro-watershed) so field data collected via
+    the DRISHTI mobile app could be ingested with a thin adapter. All of these
+    are optional/nullable: a casual photo upload carries none of them, and we
+    never fabricate values we don't have.
+    """
 
     id: str
     filename: str
@@ -48,6 +59,15 @@ class PhotoMetadata(BaseModel):
     filesize_bytes: int | None = None
     notes: str | None = None
     watershed_id: str | None = None
+
+    # -- SRISHTI-DRISHTI alignment fields (all optional; sample/entered by hand) --
+    state: str | None = None
+    district: str | None = None
+    block: str | None = None
+    gram_panchayat: str | None = None
+    micro_watershed_id: str | None = None
+    #: IWMP/SRISHTI-style batch year range, e.g. "2014-15" (kept as free text).
+    project_year: str | None = None
 
 
 class SatelliteSample(BaseModel):

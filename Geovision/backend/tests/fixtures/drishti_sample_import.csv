@@ -1,0 +1,5 @@
+photo_ref,latitude,longitude,timestamp,state,district,block,gram_panchayat,micro_watershed_id,project_year,classification,notes
+sample_check_dam_01.jpg,28.6120,77.2100,2024-05-08 10:30:00,Demo State,Demo District,Demo Block,Demo GP,SAMPLE-MWS-001,2014-15,check_dam,Sample row — clearly fake demo data
+sample_plantation_02.jpg,28.6505,77.1550,2024-05-09 11:15:00,Demo State,Demo District,Demo Block,,SAMPLE-MWS-002,2014-15,plantation,Sample row — clearly fake demo data
+sample_farm_pond_03.jpg,28.5870,77.3050,2024-05-10 09:45:00,Demo State,Demo District,Demo Block,Demo GP,SAMPLE-MWS-003,2015-16,farm_pond,
+sample_field_04.jpg,28.7010,77.2480,2024-05-12 14:05:00,Demo State,Demo District,,,SAMPLE-MWS-004,2017-18,,metadata-only row with no DRISHTI classification

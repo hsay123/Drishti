@@ -8,7 +8,9 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import { Crosshair, Stack } from "@phosphor-icons/react";
+import { useState } from "react";
 import { PhotoLayer } from "./PhotoLayer.jsx";
+import { SrishtiWmsLayer, SrishtiToggleControl } from "./SrishtiLayerToggle.jsx";
 
 /**
  * Pan/zoom to the photo-point cluster when it changes and no analysis
@@ -52,6 +54,8 @@ function ClickCatcher({ onAoiClick }) {
 
 function MapView({ result, view, onViewChange, showMask, onToggleMask, onAoiClick, photos }) {
   const bounds = result ? latLngBounds(result.aoi_bounds) : DEFAULT_BOUNDS;
+  const [srishtiOn, setSrishtiOn] = useState(false); // Bhuvan WMS overlay: off by default
+  const [srishtiState, setSrishtiState] = useState("BR");
 
   return (
     <div className="map-wrap">
@@ -64,6 +68,7 @@ function MapView({ result, view, onViewChange, showMask, onToggleMask, onAoiClic
       >
         <TileLayer url={TILE_URL} attribution={DARK_ATTRIBUTION} maxZoom={18} />
         <ClickCatcher onAoiClick={onAoiClick} />
+        <SrishtiWmsLayer enabled={srishtiOn} stateCode={srishtiState} />
 
         {result && (
           <>
@@ -120,6 +125,13 @@ function MapView({ result, view, onViewChange, showMask, onToggleMask, onAoiClic
         <Crosshair size={13} weight="duotone" />
         Click map to set a custom AOI
       </div>
+
+      <SrishtiToggleControl
+        enabled={srishtiOn}
+        onEnabled={setSrishtiOn}
+        stateCode={srishtiState}
+        onStateCode={setSrishtiState}
+      />
     </div>
   );
 }

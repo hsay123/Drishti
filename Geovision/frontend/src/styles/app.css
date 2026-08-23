@@ -705,6 +705,45 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: var(--glass-shadow);
 }
 
+/* NRSC Bhuvan WMS overlay toggle (SRISHTI-alignment spike) — sits above the
+   click-to-set-AOI legend on the map's right edge. */
+.srishti-toggle {
+  position: absolute;
+  top: 288px;
+  right: 16px;
+  z-index: 460;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.srishti-toggle .mask-toggle {
+  align-self: auto;
+}
+
+.srishti-state {
+  max-width: 168px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass-bg-strong);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--glass-shadow);
+}
+
+.srishti-src {
+  padding-right: 4px;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 650;
+}
+
 /* leaflet light touch */
 
 .leaflet-container {
@@ -1679,6 +1718,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     bottom: 14px;
     right: 14px;
   }
+  .srishti-toggle {
+    top: auto;
+    bottom: 52px;
+    right: 14px;
+  }
 }
 
 /* ---------- watershed photo points ---------- */
@@ -1902,6 +1946,82 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-weight: 600;
   color: #0f172a;
   opacity: 0.8;
+}
+
+/* ---------- DRISHTI context (optional upload fields) + import ---------- */
+
+.drishti-details {
+  margin-top: 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--glass-bg);
+}
+
+.drishti-details summary {
+  cursor: pointer;
+  padding: 8px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  user-select: none;
+}
+
+.drishti-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  padding: 0 11px;
+}
+
+.drishti-field .input {
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+
+.drishti-grid + .btn-note,
+.import-summary {
+  margin-top: 9px;
+  margin-bottom: 11px;
+}
+
+.import-summary {
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--glass-bg);
+}
+
+.is-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.is-skipped {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.is-skipped li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #0f172a;
+}
+
+.is-skipped li svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #b45309;
 }
 
 /* ---------- photo timeline + field report ---------- */

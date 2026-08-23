@@ -13,4 +13,6 @@ export const CATEGORY_META = {
   vegetation_degraded: { color: "#f59e0b", label: "Degraded vegetation" },
   agriculture_active: { color: "#a3e635", label: "Active agriculture" },
   other: { color: "#9aa4b2", label: "Other" },
+  // CSV-imported metadata-only points — never a model verdict.
+  not_analyzed: { color: "#94a3b8", label: "Not analyzed (imported)" },
 };
