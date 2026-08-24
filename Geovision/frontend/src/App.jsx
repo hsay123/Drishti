@@ -285,7 +285,7 @@ function Header({ health }) {
           <Globe size={20} weight="duotone" />
         </span>
         <div>
-          <h1 className="brand-name">HackPreneur</h1>
+          <h1 className="brand-name">GeoVision AI</h1>
           <p className="brand-sub">Satellite Change Detector</p>
         </div>
       </div>
