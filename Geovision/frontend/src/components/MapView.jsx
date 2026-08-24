@@ -53,10 +53,7 @@ function BoundsFitter({ bounds }) {
  */
 function SrishtiStateFocus({ stateCode, enabled, suppressed }) {
   const map = useMap();
-  if (typeof window !== "undefined")
-    window.__ssf = { renders: (window.__ssf?.renders || 0) + 1, enabled, suppressed, stateCode };
   useEffect(() => {
-    window.__ssfEffect = { enabled, suppressed, stateCode };
     if (!enabled || suppressed) return;
     const state = STATES.find((s) => s.code === stateCode);
     if (!state?.center) return;
