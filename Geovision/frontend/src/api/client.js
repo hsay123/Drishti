@@ -51,6 +51,13 @@ async function getWatchlist() {
   return Array.isArray(body) ? body : [];
 }
 
+async function getWatershedHealth() {
+  const res = await fetch(`${API_BASE}/watersheds/health`);
+  if (!res.ok) throw new Error(`Watershed health request failed (HTTP ${res.status})`);
+  const body = await res.json();
+  return Array.isArray(body?.watersheds) ? body : { watersheds: [], photo_count: 0 };
+}
+
 async function getPhotos(watershedId) {
   const params = watershedId ? `?watershed_id=${encodeURIComponent(watershedId)}` : "";
   const res = await fetch(`${API_BASE}/photos${params}`);
@@ -125,4 +132,4 @@ async function importPhotos({ file }) {
   }
 }
 
-export { postAnalyze, getHealth, getWatchlist, getPhotos, uploadPhoto, getNarrative, importPhotos };
+export { postAnalyze, getHealth, getWatchlist, getWatershedHealth, getPhotos, uploadPhoto, getNarrative, importPhotos };

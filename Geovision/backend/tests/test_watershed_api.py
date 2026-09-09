@@ -371,3 +371,182 @@ def test_existing_routes_untouched():
     for route in ("/analyze", "/health", "/watchlist", "/photos/import"):
         assert route in path_items
     assert "post" in path_items["/analyze"]
+
+
+# ---------------------------------------------------------------------------
+# Watershed health score (Phase 24 — judge-feedback "Watershed Health" chart)
+# ---------------------------------------------------------------------------
+
+NDVI_ENTRY = {
+    "preset_id": "po-valley-drought-2022",
+    "location_name": "Po Valley, Italy",
+    "mode": "ndvi",
+    "priority": "High",
+    "affected_pct": 24.31,
+    "aoi_bounds": [10.75, 44.7, 11.25, 45.1],
+    "after_coverage_pct": 40.0,
+    "before_coverage_pct": 60.0,
+}
+
+NDWI_ENTRY = {
+    "preset_id": "kishanganj-flood-2017",
+    "location_name": "Kishanganj District, Bihar, India",
+    "mode": "ndwi",
+    "priority": "Medium",
+    "affected_pct": 13.01,
+    "aoi_bounds": [87.75, 25.75, 88.15, 26.15],
+    "after_coverage_pct": 2.4,
+    "before_coverage_pct": 1.6,
+}
+
+
+def sample_photo(lat: float, lon: float, **overrides) -> dict:
+    base = {
+        "lat": lat,
+        "lon": lon,
+        "intervention_verified": False,
+        "satellite": {"ndvi": 0.2, "ndwi": -0.2},
+    }
+    base.update(overrides)
+    return base
+
+
+class TestHealthScore:
+    """Pure-function coverage for backend/pipeline/health_score.py (no HTTP)."""
+
+    def test_empty(self):
+        from backend.pipeline.health_score import compute_health_scores
+
+        assert compute_health_scores([], []) == []
+
+    def test_ndvi_entry_uses_satellite_coverage(self):
+        from backend.pipeline.health_score import compute_health_scores
+
+        [r] = compute_health_scores([NDVI_ENTRY], [])
+        assert r["preset_id"] == "po-valley-drought-2022"
+        assert r["sub_scores"]["vegetation"] == 40  # after_coverage_pct, ndvi mode
+        assert r["sub_scores"]["water"] is None
+        assert r["sub_scores"]["interventions"] is None
+        assert r["overall"] == 40  # single present sub-score drives the score
+        assert r["sub_scores"]["vegetation_source"] == "satellite:ndvi coverage"
+        assert r["photo_count"] == 0
+
+    def test_ndwi_entry_buckets_field_photos(self):
+        """Photos outside the AOI are excluded; mixed signals combine."""
+        from backend.pipeline.health_score import compute_health_scores
+
+        photos = [
+            sample_photo(25.9, 87.9, satellite={"ndvi": 0.2, "ndwi": 0.5}),
+            sample_photo(26.0, 88.0, satellite={"ndvi": 0.4, "ndwi": 0.2},
+                         intervention_verified=True),
+            # Far outside the Kishanganj bbox — must not count:
+            sample_photo(28.6, 77.2, satellite={"ndvi": 1.0, "ndwi": 1.0},
+                         intervention_verified=True),
+        ]
+        [r] = compute_health_scores([NDWI_ENTRY], photos)
+        assert r["photo_count"] == 2
+        assert r["verified_intervention_count"] == 1
+        # ndwi mode -> satellite water coverage wins over photo mean.
+        assert r["sub_scores"]["water"] == 2  # after_coverage_pct 2.4
+        assert r["sub_scores"]["water_source"] == "satellite:ndwi coverage"
+        # No ndvi-mode coverage -> fall back to field mean NDVI (0.3 -> 30).
+        assert r["sub_scores"]["vegetation"] == 30
+        assert r["sub_scores"]["vegetation_source"] == "field:mean ndvi"
+        # 1 of 2 regional photos is a verified intervention.
+        assert r["sub_scores"]["interventions"] == 50
+        # overall = 30*0.4 + 2*0.3 + 50*0.3 = 27.6 -> 28.
+        assert r["overall"] == 28
+
+    def test_no_satellite_data_degrades_to_null(self):
+        from backend.pipeline.health_score import compute_health_scores
+
+        entry = dict(NDWI_ENTRY)
+        entry["after_coverage_pct"] = None
+        entry["before_coverage_pct"] = None
+        photos = [sample_photo(25.9, 87.9, satellite=None)]
+        [r] = compute_health_scores([entry], photos)
+        assert r["sub_scores"]["vegetation"] is None
+        assert r["sub_scores"]["water"] is None
+        # Photos exist but none verified -> 0 is a real (not "no data") value.
+        assert r["sub_scores"]["interventions"] == 0
+        assert r["overall"] == 0
+
+    def test_no_data_reports_null_overall_not_zero(self):
+        from backend.pipeline.health_score import compute_health_scores
+
+        entry = dict(NDVI_ENTRY)
+        entry["mode"] = "nbr"
+        entry["after_coverage_pct"] = None
+        entry["before_coverage_pct"] = None
+        [r] = compute_health_scores([entry], [])
+        assert r["photo_count"] == 0
+        assert r["sub_scores"]["vegetation"] is None
+        assert r["sub_scores"]["water"] is None
+        assert r["sub_scores"]["interventions"] is None
+        assert r["overall"] is None  # the UI's distinct "no data" state
+
+    def test_malformed_aoi_never_breaks_scoring(self):
+        from backend.pipeline.health_score import compute_health_scores
+
+        entry = dict(NDWI_ENTRY)
+        entry["aoi_bounds"] = "not-a-aoi"
+        photos = [sample_photo(25.9, 87.9)]
+        # Degrades to no photos rather than raising.
+        [r] = compute_health_scores([entry], photos)
+        assert r["photo_count"] == 0
+        assert r["overall"] is not None
+
+
+class TestWatershedHealthEndpoint:
+    """GET /watersheds/health — fully offline (presets come from cache files)."""
+
+    def test_health_scores_shape(self, client):
+        res = client.get("/watersheds/health")
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert "watersheds" in body and isinstance(body["watersheds"], list)
+        assert body["photo_count"] == 0  # tmp photo store, none uploaded
+
+        # The three on-disk presets are always present -> deterministic offline.
+        assert len(body["watersheds"]) == 3
+        names = {w["location_name"] for w in body["watersheds"]}
+        assert "Kishanganj District, Bihar, India" in names
+        assert "Po Valley, Emilia-Romagna, Italy" in names
+        assert "Gospers Mountain, NSW, Australia" in names
+
+        for w in body["watersheds"]:
+            assert {
+                "preset_id", "location_name", "mode", "priority",
+                "affected_pct", "aoi_bounds", "photo_count",
+                "verified_intervention_count", "overall", "sub_scores",
+            } <= set(w)
+            assert w["aoi_bounds"] is not None
+
+        kish = next(w for w in body["watersheds"] if w["mode"] == "ndwi")
+        assert kish["sub_scores"]["water"] == 2  # ndwi coverage 2.4 -> 2
+        assert kish["sub_scores"]["interventions"] is None  # no field photos yet
+        assert kish["photo_count"] == 0
+
+        nsw = next(w for w in body["watersheds"] if w["mode"] == "nbr")
+        # nbr mode has no matching satellite coverage and no photos -> no data.
+        assert nsw["overall"] is None
+        assert nsw["sub_scores"]["vegetation"] is None
+
+    def test_uploads_feed_health_buckets(self, client):
+        """A photo inside a preset AOI appears in that watershed's score."""
+        # Kishanganj bbox [87.75, 25.75, 88.15, 26.15] — reuse the bbox AOI.
+        res = client.post(
+            "/photos/upload",
+            data={
+                "aoi": "[87.75, 25.75, 88.15, 26.15]",
+                "auto_classify": "false",
+            },
+            files={"file": ("bihar.jpg", gps_jpeg(lat_dms=(25, 54, 0), lon_dms=(88, 0, 0)), "image/jpeg")},
+        )
+        assert res.status_code == 200, res.text
+
+        body = client.get("/watersheds/health").json()
+        assert body["photo_count"] == 1
+        kish = next(w for w in body["watersheds"] if w["mode"] == "ndwi")
+        assert kish["photo_count"] == 1  # bucketed into this watershed's AOI
+        assert kish["sub_scores"]["interventions"] == 0  # photo present, not verified

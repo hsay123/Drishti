@@ -28,6 +28,7 @@ from backend.pipeline.drishti_import import (
     sample_date_for,
     validate_row,
 )
+from backend.pipeline.health_score import compute_health_scores
 from backend.pipeline.photo_classifier import classify_photo
 from backend.pipeline.narrative import build_narrative
 from backend.pipeline.photo_ingest import (
@@ -303,6 +304,26 @@ def _suffix_for(content_type: str | None, filename: str) -> str:
         if lower.endswith(ext):
             return ".jpg" if ext == ".jpeg" else ext
     return ".jpg"
+
+
+@router.get("/watersheds/health")
+def watersheds_health() -> dict:
+    """0-100 health score per priority watershed (see ``pipeline/health_score.py``).
+
+    Aggregates satellite signal coverage from each already-analyzed /analyze
+    result plus geo-tagged field photos that fall inside that watershed's AOI.
+    Runs no new analyses and makes no network calls. Sub-scores that cannot be
+    computed are ``None``; an ``overall`` of ``None`` means "no data" (the UI
+    must not render it as a failing 0).
+    """
+    from backend import watchlist
+
+    entries = watchlist.build_watchlist()
+    photos = photo_store.list_photos()
+    return {
+        "watersheds": compute_health_scores(entries, photos),
+        "photo_count": len(photos),
+    }
 
 
 @router.get("/photos")

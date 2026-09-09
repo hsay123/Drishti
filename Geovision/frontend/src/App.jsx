@@ -5,8 +5,11 @@ import { DateRangeSelect } from "./components/DateRangeSelect.jsx";
 import { MapView } from "./components/MapView.jsx";
 import { AlertCard } from "./components/AlertCard.jsx";
 import { Watchlist } from "./components/Watchlist.jsx";
+import { WatershedHealthChart } from "./components/WatershedHealthChart.jsx";
 import { PhotoUpload } from "./components/PhotoUpload.jsx";
-import { postAnalyze, getHealth, getWatchlist, getPhotos, ANALYZE_TIMEOUT_MS } from "./api/client.js";
+import { Tabs, TabPanel } from "./components/Tabs.jsx";
+import { SrishtiToggleControl } from "./components/SrishtiLayerToggle.jsx";
+import { postAnalyze, getHealth, getWatchlist, getWatershedHealth, getPhotos, ANALYZE_TIMEOUT_MS } from "./api/client.js";
 import { oneYearBefore } from "./lib/dates.js";
 
 const DEFAULT_PRESET = PRESETS[0];
@@ -27,6 +30,7 @@ export default function App() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState(null);
   const [watchlist, setWatchlist] = useState(null);
+  const [healthScores, setHealthScores] = useState(null);
   const [photos, setPhotos] = useState([]);
   const abortRef = useRef(null);
   const elapsedRef = useRef(null);
@@ -34,18 +38,36 @@ export default function App() {
   const [view, setView] = useState("after");
   const [showMask, setShowMask] = useState(true);
 
+  // Watershed-boundary overlay state — lifted out of MapView so the toggle can
+  // live in the sidebar's Analysis tab instead of floating over the map (judge
+  // feedback: map was congested). Off by default; user opts in.
+  const [boundaryEnabled, setBoundaryEnabled] = useState(false);
+  const [boundaryState, setBoundaryState] = useState("BR");
+
   useEffect(() => {
     getHealth().then(setHealth);
     getWatchlist().then(setWatchlist).catch(() => setWatchlist([]));
+    refreshHealth();
     refreshPhotos();
   }, []);
 
   function refreshPhotos() {
     getPhotos().then(setPhotos).catch(() => {});
+    refreshHealth();
+  }
+
+  // Watershed health scores depend on both the watchlist and the current photo
+  // set (photos are bucketed into each watershed's AOI), so refresh alongside
+  // both refresh paths — mount, new analysis, new upload.
+  function refreshHealth() {
+    getWatershedHealth()
+      .then((d) => setHealthScores(d?.watersheds ?? []))
+      .catch(() => setHealthScores([]));
   }
 
   function refreshWatchlist() {
     getWatchlist().then(setWatchlist).catch(() => {});
+    refreshHealth();
   }
 
   function selectPreset(id) {
@@ -167,6 +189,8 @@ export default function App() {
           onToggleMask={setShowMask}
           onAoiClick={handleAoiClick}
           photos={photos}
+          boundaryEnabled={boundaryEnabled}
+          boundaryStateCode={boundaryState}
         />
         {loading && (
           <div className="map-loading">
@@ -196,63 +220,101 @@ export default function App() {
       )}
 
       <aside className="sidebar glass">
-        <div className="sidebar-scroll">
-          <section className="panel-section">
-            <h2 className="panel-title">Region & signal</h2>
-            <AOIPicker
-              presetId={presetId}
-              onPreset={selectPreset}
-              mode={mode}
-              onMode={handleMode}
-              aoi={aoi}
-              onAoiChange={handleAoiReset}
-              analyzing={loading}
-              result={result}
-            />
-            <DateRangeSelect
-              mode={mode}
-              comparisonType={comparisonType}
-              before={before}
-              after={after}
-              onBefore={setBefore}
-              onAfter={setAfter}
-              onComparisonType={setComparisonType}
-            />
-          </section>
-
-          <section className="panel-section">
-            <h2 className="panel-title">Field photos</h2>
-            <PhotoUpload aoi={aoi} onUploaded={refreshPhotos} photos={photos} />
-          </section>
-
-          {Array.isArray(watchlist) && watchlist.length > 0 && (
+        <Tabs
+          className="sidebar-tabs"
+          initial="analysis"
+          tabs={[
+            { id: "analysis", label: "Analysis" },
+            { id: "field", label: "Field Evidence" },
+            { id: "watersheds", label: "Watersheds" },
+          ]}
+        >
+          <TabPanel id="analysis">
             <section className="panel-section">
-              <Watchlist entries={watchlist} onSelect={handleWatchlistSelect} />
+              <h2 className="panel-title">Region & signal</h2>
+              <AOIPicker
+                presetId={presetId}
+                onPreset={selectPreset}
+                mode={mode}
+                onMode={handleMode}
+                aoi={aoi}
+                onAoiChange={handleAoiReset}
+                analyzing={loading}
+                result={result}
+              />
+              <DateRangeSelect
+                mode={mode}
+                comparisonType={comparisonType}
+                before={before}
+                after={after}
+                onBefore={setBefore}
+                onAfter={setAfter}
+                onComparisonType={setComparisonType}
+              />
             </section>
-          )}
 
-          <div className="panel-actions">
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => runAnalysis()}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <CircleNotch size={18} weight="bold" className="spin" />
-                  Analyzing…
-                </>
-              ) : (
-                <>
-                  <Play size={18} weight="fill" />
-                  Run change detection
-                </>
-              )}
-            </button>
-            <p className="btn-note">Sentinel-2 median composites · Otsu thresholding · RF fusion</p>
-          </div>
-        </div>
+            <section className="panel-section">
+              <h2 className="panel-title">Reference overlay</h2>
+              <SrishtiToggleControl
+                enabled={boundaryEnabled}
+                onEnabled={setBoundaryEnabled}
+                stateCode={boundaryState}
+                onStateCode={setBoundaryState}
+              />
+            </section>
+
+            <div className="panel-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => runAnalysis()}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <CircleNotch size={18} weight="bold" className="spin" />
+                    Analyzing…
+                  </>
+                ) : (
+                  <>
+                    <Play size={18} weight="fill" />
+                    Run change detection
+                  </>
+                )}
+              </button>
+              <p className="btn-note">Sentinel-2 median composites · Otsu thresholding · RF fusion</p>
+            </div>
+          </TabPanel>
+
+          <TabPanel id="field">
+            <section className="panel-section">
+              <h2 className="panel-title">Field photos</h2>
+              <PhotoUpload aoi={aoi} onUploaded={refreshPhotos} photos={photos} />
+            </section>
+          </TabPanel>
+
+          <TabPanel id="watersheds">
+            {Array.isArray(healthScores) && healthScores.length > 0 && (
+              <section className="panel-section">
+                <WatershedHealthChart entries={healthScores} />
+              </section>
+            )}
+            {Array.isArray(watchlist) && watchlist.length > 0 && (
+              <section className="panel-section">
+                <Watchlist entries={watchlist} onSelect={handleWatchlistSelect} />
+              </section>
+            )}
+            {(!Array.isArray(watchlist) || watchlist.length === 0) && (
+              <div className="tab-empty">
+                <Globe size={22} weight="duotone" />
+                <p>
+                  No watershed analyses yet — run a change detection and it will
+                  appear here with its health breakdown.
+                </p>
+              </div>
+            )}
+          </TabPanel>
+        </Tabs>
       </aside>
 
       {result ? (

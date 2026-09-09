@@ -1,4 +1,4 @@
-import { WMSTileLayer } from "react-leaflet";
+import { Pane, WMSTileLayer } from "react-leaflet";
 import { GlobeHemisphereWest } from "@phosphor-icons/react";
 import { STATES } from "../data/india-regions.js";
 
@@ -22,15 +22,19 @@ const WMS_URL = "https://bhuvan-vec2.nrsc.gov.in/bhuvan/wms";
 export function SrishtiWmsLayer({ enabled, stateCode }) {
   if (!enabled) return null;
   return (
-    <WMSTileLayer
-      url={WMS_URL}
-      layers={`watershed:${stateCode}_WS`}
-      version="1.1.1"
-      format="image/png"
-      transparent={true}
-      styles=""
-      opacity={0.55}
-    />
+    // Dedicated pane (above tilePane, below the mask overlays) so the rendered
+    // tiles can be styled independently without touching other imagery.
+    <Pane name="watershed-boundary" className="watershed-boundary-pane" style={{ zIndex: 250 }}>
+      <WMSTileLayer
+        url={WMS_URL}
+        layers={`watershed:${stateCode}_WS`}
+        version="1.1.1"
+        format="image/png"
+        transparent={true}
+        styles=""
+        opacity={0.45}
+      />
+    </Pane>
   );
 }
 
