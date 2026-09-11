@@ -89,6 +89,5 @@ classifier says `conservation_structure`).
 - Pluggable providers: `photo_classifier.PROVIDERS` registry (+ env override),
   injectable data-source seams in `satellite_sample`.
 - Free-tier friendly: vision images auto-downscaled to ≤768 px JPEG, reasoning
-  disabled on qwen3 (`reasoning_effort="none"`) so answers aren't eaten by
-  `<think>` blocks, retry/backoff honours `retry-after` on 429/5xx.
+  disabled on qwen3 (`reasoning_effort="none"`) 
 
