@@ -91,5 +91,4 @@ classifier says `conservation_structure`).
 - Free-tier friendly: vision images auto-downscaled to ≤768 px JPEG, reasoning
   disabled on qwen3 (`reasoning_effort="none"`) so answers aren't eaten by
   `<think>` blocks, retry/backoff honours `retry-after` on 429/5xx.
-- Honest AI: bootstrap-fit scores are framed as such, coverage vs severity kept
-  distinct, model notes surfaced in tooltips, 
+
