@@ -13,6 +13,7 @@ import { postAnalyze, getHealth, getWatchlist, getWatershedHealth, getPhotos, AN
 import { oneYearBefore } from "./lib/dates.js";
 
 const DEFAULT_PRESET = PRESETS[0];
+const HEALTH_POLL_MS = 15_000;
 
 export default function App() {
   const [presetId, setPresetId] = useState(DEFAULT_PRESET.id);
@@ -49,6 +50,14 @@ export default function App() {
     getWatchlist().then(setWatchlist).catch(() => setWatchlist([]));
     refreshHealth();
     refreshPhotos();
+  }, []);
+
+  // GEE connectivity flaps (slow/unreachable periods tonight): re-probe on a
+  // cadence so the header chip self-heals instead of pinning "offline" until
+  // the next page reload.
+  useEffect(() => {
+    const t = setInterval(() => getHealth().then(setHealth), HEALTH_POLL_MS);
+    return () => clearInterval(t);
   }, []);
 
   function refreshPhotos() {
@@ -339,6 +348,7 @@ export default function App() {
 }
 
 function Header({ health }) {
+  const unknown = health === null;
   const ok = health?.status === "ok" && health?.gee_connected;
   return (
     <header className="header">
@@ -352,9 +362,9 @@ function Header({ health }) {
         </div>
       </div>
       <div className="header-right">
-        <span className={`health-chip ${ok ? "ok" : "bad"}`}>
+        <span className={`health-chip ${unknown ? "checking" : ok ? "ok" : "bad"}`}>
           <Broadcast size={13} weight="duotone" />
-          {ok ? "GEE connected" : "GEE offline"}
+          {unknown ? "Checking GEE…" : ok ? "GEE connected" : "GEE offline"}
         </span>
         <span className="cadence">Sentinel-2 · ~5 day revisit · near-real-time</span>
       </div>

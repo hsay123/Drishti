@@ -237,6 +237,12 @@ body {
   background: var(--danger-bg);
 }
 
+.health-chip.checking {
+  color: var(--faint);
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+}
+
 .cadence {
   font-size: 11.5px;
   color: var(--faint);
@@ -848,7 +854,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
    WMS request/data is untouched. Combined with the lowered layer opacity (0.45)
    it reads as a quiet reference layer rather than shouting. */
 .watershed-boundary-pane img {
-  filter: sepia(1) hue-rotate(258deg) saturate(0.5) brightness(1.12) opacity(0.92);
+  filter: sepia(1) hue-rotate(198deg) saturate(1.35) brightness(1.05) opacity(0.92);
 }
 
 /* leaflet light touch */
